@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="cn.com.autotrack">
 
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <application
         android:name=".App"
         android:allowBackup="true"

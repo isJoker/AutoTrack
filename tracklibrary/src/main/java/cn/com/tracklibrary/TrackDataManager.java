@@ -40,6 +40,7 @@ public class TrackDataManager {
         mDeviceId = TrackDataPrivate.getAndroidID(application);
         mDeviceInfo = TrackDataPrivate.getDeviceInfo(application);
         TrackDataPrivate.registerActivityLifecycleCallbacks(application);
+        TrackDataPrivate.registerActivityStateObserver(application);
     }
 
     /**

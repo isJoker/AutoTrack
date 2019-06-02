@@ -9,8 +9,12 @@ import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.database.ContentObserver;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CountDownTimer;
+import android.os.Handler;
 import android.provider.Settings;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
@@ -19,6 +23,7 @@ import android.util.DisplayMetrics;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,6 +43,14 @@ class TrackDataPrivate {
     private static List<String> mIgnoredActivities;
     private static final SimpleDateFormat mDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"
             + ".SSS", Locale.CHINA);
+    private static TrackDatabaseHelper mDatabaseHelper;
+    private static CountDownTimer mCountDownTimer;
+    private static WeakReference<Activity> mCurrentActivity;
+    /**
+     * session间隔时间为30s，即30s之内没有新的页面打开，则认为app处于后台（触发app end事件），
+     * 当一个页面显示出来了，与上一个页面的退出时间间隔超过了30s，就认为app重新处于前台了（触发app start）
+     */
+    private final static int SESSION_INTERVAL_TIME = 30 * 1000;
 
     static {
         mIgnoredActivities = new ArrayList<>();
@@ -219,6 +232,20 @@ class TrackDataPrivate {
      * @param application
      */
     public static void registerActivityLifecycleCallbacks(Application application) {
+
+        mDatabaseHelper = new TrackDatabaseHelper(application,application.getPackageName());
+        mCountDownTimer = new CountDownTimer(SESSION_INTERVAL_TIME,10 * 1000) {
+            @Override
+            public void onTick(long l) {
+
+            }
+
+            @Override
+            public void onFinish() {
+                trackAppEnd(mCurrentActivity.get());
+            }
+        };
+
         application.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
             @Override
             public void onActivityCreated(Activity activity, Bundle bundle) {
@@ -227,7 +254,19 @@ class TrackDataPrivate {
 
             @Override
             public void onActivityStarted(Activity activity) {
+                mDatabaseHelper.commitAppStart(true);
+                long timeDiff = System.currentTimeMillis() - mDatabaseHelper.getAppPausedTime();
+                if(timeDiff > SESSION_INTERVAL_TIME) {
+                    // 若APP被杀死或者异常退出，导致没有收到app end时间，则重新发送app end事件
+                    if(!mDatabaseHelper.getAppEndEventState()) {
+                        trackAppEnd(activity);
+                    }
+                }
 
+                if(mDatabaseHelper.getAppEndEventState()) {
+                    mDatabaseHelper.commitAppEndEventState(false);
+                    trackAppStart(activity);
+                }
             }
 
             @Override
@@ -237,7 +276,9 @@ class TrackDataPrivate {
 
             @Override
             public void onActivityPaused(Activity activity) {
-
+                mCurrentActivity = new WeakReference<>(activity);
+                mCountDownTimer.start();
+                mDatabaseHelper.commitAppPausedTime(System.currentTimeMillis());
             }
 
             @Override
@@ -281,6 +322,42 @@ class TrackDataPrivate {
         }
 
 
+    }
+
+    /**
+     * Track AppStart 事件
+     */
+    private static void trackAppStart(Activity activity) {
+        try {
+            if (activity == null) {
+                return;
+            }
+            JSONObject properties = new JSONObject();
+            properties.put("activity", activity.getClass().getCanonicalName());
+            properties.put("title", getActivityTitle(activity));
+            TrackDataManager.getInstance().track("AppStart", properties);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Track AppEnd 事件
+     */
+    private static void trackAppEnd(Activity activity) {
+        try {
+            if (activity == null) {
+                return;
+            }
+            JSONObject properties = new JSONObject();
+            properties.put("activity", activity.getClass().getCanonicalName());
+            properties.put("title", getActivityTitle(activity));
+            TrackDataManager.getInstance().track("AppEnd", properties);
+            mDatabaseHelper.commitAppEndEventState(true);
+            mCurrentActivity = null;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -350,4 +427,19 @@ class TrackDataPrivate {
         return mDateFormat.format(ms);
     }
 
+    /**
+     * 注册 AppStart 的监听
+     */
+    static void registerActivityStateObserver(Application application) {
+        final Uri appStartUri = mDatabaseHelper.getAppStartUri();
+        application.getContentResolver().registerContentObserver(appStartUri
+                , false, new ContentObserver(new Handler()) {
+            @Override
+            public void onChange(boolean selfChange, Uri uri) {
+                if(appStartUri.equals(uri)) {
+                    mCountDownTimer.cancel();
+                }
+            }
+        });
+    }
 }

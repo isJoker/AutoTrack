@@ -1,2 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="cn.com.tracklibrary" />
+    package="cn.com.tracklibrary" >
+
+    <application>
+        <provider
+            android:name=".TrackDataContentProvider"
+            android:authorities="${applicationId}.TrackDataContentProvider"
+            android:enabled="true"
+            android:exported="false" />
+    </application>
+
+</manifest>
