@@ -181,7 +181,7 @@ class TrackDataPrivate {
         final Map<String, Object> deviceInfo = new HashMap<>();
         {
             deviceInfo.put("lib", "Android");
-            deviceInfo.put("lib_version", TrackDataApi.SDK_VERSION);
+            deviceInfo.put("lib_version", TrackDataManager.SDK_VERSION);
             deviceInfo.put("os", "Android");
             deviceInfo.put("os_version",
                     Build.VERSION.RELEASE == null ? "UNKNOWN" : Build.VERSION.RELEASE);
@@ -275,7 +275,7 @@ class TrackDataPrivate {
             JSONObject properties = new JSONObject();
             properties.put("activity", canonicalName);
             properties.put("title", getActivityTitle(activity));
-            TrackDataApi.getInstance().track("AppViewScreen", properties);
+            TrackDataManager.getInstance().track("AppViewScreen", properties);
         } catch (JSONException e) {
             e.printStackTrace();
         }

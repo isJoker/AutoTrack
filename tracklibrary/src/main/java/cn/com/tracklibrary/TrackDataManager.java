@@ -13,30 +13,30 @@ import java.util.Map;
  * Created by JokerWan on 2019-06-01.
  * Function: track 数据操作类
  */
-public class TrackDataApi {
+public class TrackDataManager {
     static final String SDK_VERSION = "1.0.0";
     private String mDeviceId;
     private static Map<String, Object> mDeviceInfo;
     private static final Object mLock = new Object();
-    private static volatile TrackDataApi INSTANCE;
+    private static volatile TrackDataManager INSTANCE;
 
-    private static final String TAG = TrackDataApi.class.getSimpleName();
+    private static final String TAG = TrackDataManager.class.getSimpleName();
 
     public static void init(Application application) {
         if(INSTANCE == null) {
             synchronized (mLock){
                 if(INSTANCE == null) {
-                    INSTANCE = new TrackDataApi(application);
+                    INSTANCE = new TrackDataManager(application);
                 }
             }
         }
     }
 
-    public static TrackDataApi getInstance() {
+    public static TrackDataManager getInstance() {
         return INSTANCE;
     }
 
-    private TrackDataApi(Application application) {
+    private TrackDataManager(Application application) {
         mDeviceId = TrackDataPrivate.getAndroidID(application);
         mDeviceInfo = TrackDataPrivate.getDeviceInfo(application);
         TrackDataPrivate.registerActivityLifecycleCallbacks(application);
@@ -68,4 +68,11 @@ public class TrackDataApi {
 
     }
 
+    public void ignoreAutoTrackActivity(Class<?> activityClass) {
+        TrackDataPrivate.ignoreAutoTrackActivity(activityClass);
+    }
+
+    public void removeIgnoredActivity(Class<?> activityClass) {
+        TrackDataPrivate.removeIgnoreActivity(activityClass);
+    }
 }
